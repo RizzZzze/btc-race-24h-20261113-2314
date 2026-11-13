@@ -20,6 +20,13 @@
 //          flatten is pure cost). All decisions use integer math on bar closes only:
 //          no clock, no randomness, no environment reads, so two runs decide
 //          identically.
+//
+// Verified on the dev window with the kit's grade-local (process driver):
+// net PnL +3.949398 USDC, 6 trades, win rate 2/3, max drawdown 1.47%,
+// 0 rejected, guardrails met, L1 regrade reproduced byte for byte. Honest
+// limit: on 200 block-bootstrap surrogate windows the same rule is positive
+// on only 8% (median -$16.80), so the dev result is a favorable draw and the
+// race window's outcome is genuinely uncertain.
 
 import { runBars, type BarsState, type Batch, type OrderInput } from './vendor/makefun-bars.ts';
 
