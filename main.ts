@@ -21,6 +21,12 @@
 //          no clock, no randomness, no environment reads, so two runs decide
 //          identically.
 //
+// Live-run guards (never trigger on the dev window; they exist so one bad input
+// shape in 1,440 unattended live batches cannot kill the run): onBatch is wrapped
+// in try/catch (an unexpected throw answers with no orders instead of exiting the
+// process), an empty hello symbol list degrades to no orders, and a held position
+// with no matching position state is sold at once (orphan reconciliation).
+//
 // Verified on the dev window with the kit's grade-local (process driver):
 // net PnL +3.949398 USDC, 6 trades, win rate 2/3, max drawdown 1.47%,
 // 0 rejected, guardrails met, L1 regrade reproduced byte for byte. Honest
@@ -81,6 +87,16 @@ function below(price: bigint, bps: bigint): bigint {
 }
 
 function onBatch(state: BarsState, batch: Batch): OrderInput[] {
+  try {
+    return onBatchInner(state, batch);
+  } catch (err) {
+    // Never let one bad batch end the run: answer with no orders and keep going.
+    console.error('onBatch error (ignored, no orders):', err);
+    return [];
+  }
+}
+
+function onBatchInner(state: BarsState, batch: Batch): OrderInput[] {
   // Fold in this batch's bar for our symbol, if it carries one. A minute with no
   // bar leaves the symbol absent from the batch: nothing new to decide on.
   const bar = batch.bars.find((b) => b.symbol === symbol);
@@ -107,6 +123,13 @@ function onBatch(state: BarsState, batch: Batch): OrderInput[] {
       return [{ side: 'sell', symbol, qty: held.qty, max_slippage_bps: MAX_SLIPPAGE_BPS }];
     }
     return [];
+  }
+
+  // Orphan reconciliation: a position exists but no position state does (e.g. a
+  // sell was rejected). Sell it at once instead of leaving it to the flatten.
+  if (held !== undefined && held.qty > 0n) {
+    lastExitK = k;
+    return [{ side: 'sell', symbol, qty: held.qty, max_slippage_bps: MAX_SLIPPAGE_BPS }];
   }
 
   // Flat: arm / confirm logic.
@@ -142,7 +165,7 @@ function onBatch(state: BarsState, batch: Batch): OrderInput[] {
 
 await runBars({
   onHello(state) {
-    symbol = state.hello.symbols[0]!.symbol;
+    symbol = state.hello.symbols[0]?.symbol ?? '';
   },
   onBatch,
 });
