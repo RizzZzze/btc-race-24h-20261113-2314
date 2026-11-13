@@ -2,7 +2,7 @@
 
 Paper-money bot for make.fun's "Race a BTC trading bot live for 24 hours"
 (`btc-race-24h-20261113-2314`). Long only, one asset (cbBTC/USDC), one open
-position at most. Python 3.13, standard library only; the wire protocol is the
+position at most. TypeScript (Node 22 type stripping), standard library only; the wire protocol is the
 kit's SDK shim vendored byte-for-byte under `vendor/`.
 
 ## Rule
